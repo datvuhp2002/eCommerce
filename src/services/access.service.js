@@ -43,10 +43,7 @@ class AccessService {
         publicKey,
       });
       if (!keyStore) {
-        return {
-          code: "XXX",
-          message: "keyStore error",
-        };
+        throw new BadRequestError("Error: keyStore error");
       }
       // created token pair
       const tokens = await createTokenPair(
