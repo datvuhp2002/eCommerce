@@ -1,5 +1,5 @@
 "use strict";
-const httpStatusCode = require("../httpStatusCode/httpStatusCode");
+const httpStatusCode = require("../utils/httpStatusCode");
 
 class ErrorResponse extends Error {
   constructor(message, status) {
@@ -26,7 +26,17 @@ class BadRequestError extends ErrorResponse {
   }
 }
 
+class AuthFailureError extends ErrorResponse {
+  constructor(
+    message = httpStatusCode.ReasonPhrases.UNAUTHORIZED,
+    statusCode = httpStatusCode.StatusCodes.UNAUTHORIZED
+  ) {
+    super(message, statusCode);
+  }
+}
+
 module.exports = {
   ConflictRequestError,
   BadRequestError,
+  AuthFailureError,
 };

@@ -1,5 +1,5 @@
 "use strict";
-const httpStatusCode = require("../httpStatusCode/httpStatusCode");
+const httpStatusCode = require("../utils/httpStatusCode");
 
 class SuccessResponse {
   constructor({
@@ -40,4 +40,5 @@ class CREATED extends SuccessResponse {
 module.exports = {
   OK,
   CREATED,
+  SuccessResponse,
 };
