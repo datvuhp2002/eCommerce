@@ -1,12 +1,16 @@
 "use strict";
 
-const shopModule = require("../models/shop.module");
+const shopModule = require("../models/shop.models");
 const bcrypt = require("bcrypt");
 const crypto = require("node:crypto");
 const KeyTokenService = require("./keyToken.service");
-const { createTokenPair } = require("../auth/authUtils");
+const { createTokenPair, verifyJWT } = require("../auth/authUtils");
 const { getInfoData } = require("../utils");
-const { BadRequestError, AuthFailureError } = require("../core/error.response");
+const {
+  BadRequestError,
+  AuthFailureError,
+  ForbiddenError,
+} = require("../core/error.response");
 // service
 const { findByEmail } = require("./shop.service");
 const RoleShop = {
@@ -124,6 +128,66 @@ class AccessService {
     //     status: "error",
     //   };
     // }
+  };
+
+  static logout = async (keyStore) => {
+    const delKey = await KeyTokenService.removeKeyById(keyStore._id);
+    console.log("DelKey:::", delKey);
+    return delKey;
+  };
+
+  // Checked token used?
+  static handleRefreshToken = async (refreshToken) => {
+    // check refresh token used?
+    const foundToken = await KeyTokenService.findByRefreshTokenUsed(
+      refreshToken
+    );
+    // if it used
+    if (foundToken) {
+      // decode xem ai dang su dung refresh token
+      const { userId, email } = await verifyJWT(
+        refreshToken,
+        foundToken.privateKey
+      );
+      console.log("UserId:::", userId);
+      console.log("email:::", email);
+      // delete
+      await KeyTokenService.deleteById(userId);
+      throw new ForbiddenError("Something went wrong! Please re-login");
+    }
+    // if it not used
+    const holderToken = await KeyTokenService.findByRefreshToken(refreshToken);
+    if (!holderToken) throw new AuthFailureError("Shop not registered");
+    // verifyToken
+    const { userId, email } = await verifyJWT(
+      refreshToken,
+      holderToken.privateKey
+    );
+
+    // check UserId
+    const foundShop = await findByEmail({ email });
+    if (!foundShop) throw new AuthFailureError("Shop not registered ");
+    console.log("HolderToken::::", holderToken);
+    // create new token
+    const tokens = await createTokenPair(
+      { userId, email },
+      holderToken.publicKey,
+      holderToken.privateKey
+    );
+    console.log("Token::::", tokens);
+    // Update token
+    await holderToken.updateOne({
+      $set: {
+        refreshToken: tokens.refreshToken,
+      },
+      $addToSet: {
+        refreshTokenUsed: refreshToken, // used to take a new token
+      },
+    });
+    return {
+      user: { userId, email },
+      tokens,
+    };
   };
 }
 
