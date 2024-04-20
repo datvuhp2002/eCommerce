@@ -137,46 +137,85 @@ class AccessService {
   };
 
   // Checked token used?
-  static handleRefreshToken = async (refreshToken) => {
-    // check refresh token used?
-    const foundToken = await KeyTokenService.findByRefreshTokenUsed(
-      refreshToken
-    );
-    // if it used
-    if (foundToken) {
-      // decode xem ai dang su dung refresh token
-      const { userId, email } = await verifyJWT(
-        refreshToken,
-        foundToken.privateKey
-      );
-      console.log("UserId:::", userId);
-      console.log("email:::", email);
-      // delete
+  // static handleRefreshToken = async (refreshToken) => {
+  //   // check refresh token used?
+  //   const foundToken = await KeyTokenService.findByRefreshTokenUsed(
+  //     refreshToken
+  //   );
+  //   // if it used
+  //   if (foundToken) {
+  //     // decode xem ai dang su dung refresh token
+  //     const { userId, email } = await verifyJWT(
+  //       refreshToken,
+  //       foundToken.privateKey
+  //     );
+  //     console.log("UserId:::", userId);
+  //     console.log("email:::", email);
+  //     // delete
+  //     await KeyTokenService.deleteById(userId);
+  //     throw new ForbiddenError("Something went wrong! Please re-login");
+  //   }
+  //   // if it not used
+  //   const holderToken = await KeyTokenService.findByRefreshToken(refreshToken);
+  //   if (!holderToken) throw new AuthFailureError("Shop not registered");
+  //   // verifyToken
+  //   const { userId, email } = await verifyJWT(
+  //     refreshToken,
+  //     holderToken.privateKey
+  //   );
+
+  //   // check UserId
+  //   const foundShop = await findByEmail({ email });
+  //   if (!foundShop) throw new AuthFailureError("Shop not registered ");
+  //   console.log("HolderToken::::", holderToken);
+  //   // create new token
+  //   const tokens = await createTokenPair(
+  //     { userId, email },
+  //     holderToken.publicKey,
+  //     holderToken.privateKey
+  //   );
+  //   console.log("Token::::", tokens);
+  //   // Update token
+  //   await holderToken.updateOne({
+  //     $set: {
+  //       refreshToken: tokens.refreshToken,
+  //     },
+  //     $addToSet: {
+  //       refreshTokenUsed: refreshToken, // used to take a new token
+  //     },
+  //   });
+  //   return {
+  //     user: { userId, email },
+  //     tokens,
+  //   };
+  // };
+
+  // version 2
+  static handleRefreshToken = async ({ refreshToken, user, keyStore }) => {
+    const { userId, email } = user;
+    console.log("User:", user);
+    if (keyStore.refreshTokenUsed.includes(refreshToken)) {
       await KeyTokenService.deleteById(userId);
       throw new ForbiddenError("Something went wrong! Please re-login");
     }
-    // if it not used
-    const holderToken = await KeyTokenService.findByRefreshToken(refreshToken);
-    if (!holderToken) throw new AuthFailureError("Shop not registered");
-    // verifyToken
-    const { userId, email } = await verifyJWT(
-      refreshToken,
-      holderToken.privateKey
-    );
+    console.log("Refresh Token::::", refreshToken);
+    console.log("Refresh Token keyStore:::", keyStore.refreshToken);
+    if (keyStore.refreshToken !== refreshToken) {
+      throw new AuthFailureError("Shop is not registered");
+    }
 
     // check UserId
     const foundShop = await findByEmail({ email });
-    if (!foundShop) throw new AuthFailureError("Shop not registered ");
-    console.log("HolderToken::::", holderToken);
+    if (!foundShop) throw new AuthFailureError("Shop is not registered ");
     // create new token
     const tokens = await createTokenPair(
       { userId, email },
-      holderToken.publicKey,
-      holderToken.privateKey
+      keyStore.publicKey,
+      keyStore.privateKey
     );
     console.log("Token::::", tokens);
     // Update token
-    await holderToken.updateOne({
+    await keyStore.updateOne({
       $set: {
         refreshToken: tokens.refreshToken,
       },
@@ -185,7 +224,7 @@ class AccessService {
       },
     });
     return {
-      user: { userId, email },
+      user,
       tokens,
     };
   };
